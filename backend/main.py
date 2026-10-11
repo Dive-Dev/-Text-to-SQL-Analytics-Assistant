@@ -14,7 +14,7 @@ from backend.models import (
     QueryResponse,
     SchemaResponse,
 )
-from backend.validator import check_sql_safety, run_qa_validation_loop, suggest_chart
+from backend.validator import check_sql_safety, generate_data_analysis, run_qa_validation_loop, suggest_chart
 
 app = FastAPI(
     title="Text-to-SQL Analytics Assistant API",
@@ -113,6 +113,7 @@ def execute_direct_sql(req: ExecuteRequest):
         raise HTTPException(status_code=400, detail=f"Execution Error: {exec_err}")
 
     chart_sug = suggest_chart(df)
+    analysis_text = generate_data_analysis(df, "Direct SQL Execution")
     return QueryResponse(
         success=True,
         question="Direct SQL Execution",
@@ -124,6 +125,7 @@ def execute_direct_sql(req: ExecuteRequest):
         validation_attempts=[],
         chart_suggestion=chart_sug,
         llm_source="Direct SQL",
+        analysis=analysis_text,
     )
 
 

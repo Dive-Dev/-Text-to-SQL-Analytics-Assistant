@@ -98,6 +98,8 @@ def test_api_query_endpoint():
     assert data["sql"] is not None
     assert len(data["validation_attempts"]) >= 1
     assert data["validation_attempts"][0]["valid"] is True
+    assert data["analysis"] is not None
+    assert len(data["analysis"]) > 0
 
 
 def test_api_execute_direct_sql_endpoint():
@@ -111,6 +113,7 @@ def test_api_execute_direct_sql_endpoint():
     data = res.json()
     assert data["success"] is True
     assert data["row_count"] > 0
+    assert data["analysis"] is not None
 
 
 def test_api_execute_blocks_dml():

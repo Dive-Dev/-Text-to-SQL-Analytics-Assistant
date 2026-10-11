@@ -69,6 +69,30 @@ st.markdown(
         font-size: 0.9rem;
         margin-top: 8px;
     }
+    .analysis-card {
+        background: linear-gradient(135deg, #F8FAFC 0%, #F1F5F9 100%);
+        border: 1px solid #CBD5E1;
+        border-left: 5px solid #2563EB;
+        border-radius: 8px;
+        padding: 16px 20px;
+        margin-top: 14px;
+        margin-bottom: 10px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    }
+    .analysis-header {
+        font-weight: 700;
+        font-size: 1.05rem;
+        color: #1E3A8A;
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .analysis-body {
+        color: #334155;
+        font-size: 0.95rem;
+        line-height: 1.65;
+    }
     </style>
 """,
     unsafe_allow_html=True,
@@ -367,6 +391,15 @@ else:
 
             df = pd.DataFrame(item.get("rows", []))
 
+            # Retrieve or generate analytical insights for the query result
+            analysis_text = item.get("analysis")
+            if not analysis_text and not df.empty:
+                try:
+                    from backend.validator import generate_data_analysis
+                    analysis_text = generate_data_analysis(df, item.get("question", ""))
+                except Exception:
+                    analysis_text = None
+
             with tab_data:
                 if not df.empty:
                     st.dataframe(df, use_container_width=True)
@@ -378,6 +411,14 @@ else:
                         mime="text/csv",
                         key=f"dl_{idx}",
                     )
+                    if analysis_text:
+                        st.markdown("---")
+                        st.markdown("##### 💡 Analytical Insights & Summary:")
+                        st.markdown(
+                            f'<div class="analysis-card"><div class="analysis-header">📊 Data Summary & Breakdown</div>'
+                            f'<div class="analysis-body">\n\n{analysis_text}\n\n</div></div>',
+                            unsafe_allow_html=True,
+                        )
                 else:
                     st.info("Query returned 0 rows.")
 
@@ -464,7 +505,25 @@ else:
                         st.plotly_chart(fig, use_container_width=True)
                     except Exception as e:
                         st.warning(f"Could not render chart automatically: {e}")
+
+                    # Render Automated Analysis below Visualization
+                    if analysis_text:
+                        st.markdown("---")
+                        st.markdown("##### 💡 Analytical Insights & Key Findings:")
+                        st.markdown(
+                            f'<div class="analysis-card"><div class="analysis-header">📈 Executive Insights & Trends</div>'
+                            f'<div class="analysis-body">\n\n{analysis_text}\n\n</div></div>',
+                            unsafe_allow_html=True,
+                        )
                 else:
                     st.info("Single column or empty result; visualization not applicable.")
+                    if analysis_text:
+                        st.markdown("---")
+                        st.markdown("##### 💡 Analytical Insights & Key Findings:")
+                        st.markdown(
+                            f'<div class="analysis-card"><div class="analysis-header">📊 Data Summary</div>'
+                            f'<div class="analysis-body">\n\n{analysis_text}\n\n</div></div>',
+                            unsafe_allow_html=True,
+                        )
 
             st.divider()

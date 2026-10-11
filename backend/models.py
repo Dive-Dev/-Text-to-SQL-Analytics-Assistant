@@ -39,6 +39,7 @@ class QueryResponse(BaseModel):
     error: Optional[str] = None
     chart_suggestion: Optional[ChartSuggestion] = None
     llm_source: Optional[str] = None
+    analysis: Optional[str] = None
 
 
 class ExecuteRequest(BaseModel):

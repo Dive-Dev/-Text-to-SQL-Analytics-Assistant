@@ -105,6 +105,121 @@ def suggest_chart(df: pd.DataFrame) -> ChartSuggestion:
     return ChartSuggestion(chart_type="table")
 
 
+def generate_data_analysis(df: pd.DataFrame, question: str = "") -> str:
+    """Generate meaningful analytical insights and summary from query results."""
+    if df.empty:
+        return "The query completed successfully, but returned no matching records."
+
+    insights = []
+    num_rows = len(df)
+    cols = df.columns.tolist()
+
+    numeric_cols = [c for c in cols if pd.api.types.is_numeric_dtype(df[c])]
+    datetime_cols = [
+        c
+        for c in cols
+        if pd.api.types.is_datetime64_any_dtype(df[c])
+        or any(k in c.lower() for k in ["date", "time", "day", "month", "year"])
+    ]
+    categorical_cols = [c for c in cols if c not in numeric_cols and c not in datetime_cols]
+
+    # 1. High-level Scope Summary
+    if num_rows == 1:
+        insights.append("• **Result Overview**: Retrieved 1 aggregated metric record.")
+    else:
+        insights.append(f"• **Volume & Dimensions**: Analyzed **{num_rows:,}** rows across {len(cols)} columns.")
+
+    # 2. Key Numeric Metrics / Aggregates
+    for col in numeric_cols[:2]:
+        col_clean = col.replace("_", " ").title()
+        col_sum = df[col].sum()
+        col_avg = df[col].mean()
+        col_max = df[col].max()
+        col_min = df[col].min()
+
+        if isinstance(col_sum, float):
+            sum_str = f"{col_sum:,.2f}"
+            avg_str = f"{col_avg:,.2f}"
+            max_str = f"{col_max:,.2f}"
+            min_str = f"{col_min:,.2f}"
+        else:
+            sum_str = f"{col_sum:,}"
+            avg_str = f"{col_avg:.1f}"
+            max_str = f"{col_max:,}"
+            min_str = f"{col_min:,}"
+
+        is_currency = any(k in col.lower() for k in ["revenue", "sales", "amount", "price", "cost", "total"])
+        prefix = "$" if is_currency else ""
+
+        if num_rows > 1:
+            insights.append(
+                f"• **{col_clean}**: Cumulative total of **{prefix}{sum_str}** (average **{prefix}{avg_str}**; range: **{prefix}{min_str}** to **{prefix}{max_str}**)."
+            )
+        else:
+            insights.append(f"• **{col_clean}**: Evaluated to **{prefix}{sum_str}**.")
+
+    # 3. Categorical distribution and Top Performer
+    if categorical_cols and numeric_cols and num_rows > 1:
+        cat_col = categorical_cols[0]
+        num_col = numeric_cols[0]
+        cat_clean = cat_col.replace("_", " ").title()
+        num_clean = num_col.replace("_", " ").title()
+
+        try:
+            sorted_df = df.sort_values(by=num_col, ascending=False)
+            top_row = sorted_df.iloc[0]
+            top_val = top_row[num_col]
+            top_name = top_row[cat_col]
+
+            total_num = df[num_col].sum()
+            is_curr = any(k in num_col.lower() for k in ["revenue", "sales", "amount", "price", "cost", "total"])
+            pfix = "$" if is_curr else ""
+            top_fmt = f"{pfix}{top_val:,.2f}" if isinstance(top_val, float) else f"{pfix}{top_val:,}"
+
+            if total_num > 0:
+                share = (top_val / total_num) * 100
+                insights.append(
+                    f"• **Dominant Segment**: **{top_name}** leads in **{cat_clean}** with **{top_fmt}** ({share:.1f}% of total {num_clean.lower()})."
+                )
+            else:
+                insights.append(
+                    f"• **Top Performer**: Highest recorded **{num_clean}** is **{top_name}** with **{top_fmt}**."
+                )
+
+            if num_rows > 2:
+                bottom_row = sorted_df.iloc[-1]
+                bot_val = bottom_row[num_col]
+                bot_name = bottom_row[cat_col]
+                bot_fmt = f"{pfix}{bot_val:,.2f}" if isinstance(bot_val, float) else f"{pfix}{bot_val:,}"
+                insights.append(
+                    f"• **Baseline**: Lowest recorded entry is **{bot_name}** at **{bot_fmt}**."
+                )
+        except Exception:
+            pass
+
+    # 4. QA Test Status Insights (if status column present)
+    status_matches = [c for c in cols if c.lower() in ["status", "test_status", "result"]]
+    if status_matches:
+        stat_col = status_matches[0]
+        counts = df[stat_col].value_counts()
+        total_tests = len(df)
+        parts = [f"**{st}**: {cnt} ({cnt/total_tests*100:.1f}%)" for st, cnt in counts.items()]
+        insights.append(f"• **Execution Breakdown**: {', '.join(parts)}.")
+
+    # 5. Timeline / Trend Insights (if datetime column present)
+    if datetime_cols and num_rows > 1:
+        date_col = datetime_cols[0]
+        date_clean = date_col.replace("_", " ").title()
+        try:
+            min_date = str(df[date_col].min())[:10]
+            max_date = str(df[date_col].max())[:10]
+            insights.append(f"• **Timeline Span**: Results span **{date_clean}** from **{min_date}** to **{max_date}**.")
+        except Exception:
+            pass
+
+    return "\n\n".join(insights)
+
+
 def run_qa_validation_loop(
     question: str,
     db_service: DuckDBService,
@@ -202,8 +317,9 @@ def run_qa_validation_loop(
             last_error = exec_err
             continue
 
-        # Step 5: Format response and chart suggestion
+        # Step 5: Format response, chart suggestion, and analytical summary
         chart_sug = suggest_chart(df)
+        analysis_text = generate_data_analysis(df, question)
         records = df.to_dict(orient="records")
 
         return QueryResponse(
@@ -217,6 +333,7 @@ def run_qa_validation_loop(
             validation_attempts=validation_attempts,
             chart_suggestion=chart_sug,
             llm_source=llm_source,
+            analysis=analysis_text,
         )
 
     # If all retries exhausted
