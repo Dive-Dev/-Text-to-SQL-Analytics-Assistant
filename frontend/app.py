@@ -105,7 +105,7 @@ def run_nl_query(question, provider, model, temperature, api_key=None):
         "api_key": api_key or None,
     }
     try:
-        r = requests.post(f"{BACKEND_URL}/query", json=payload, timeout=60.0)
+        r = requests.post(f"{BACKEND_URL}/query", json=payload, timeout=180.0)
         if r.status_code == 200:
             return r.json()
         return {"success": False, "error": f"API HTTP {r.status_code}: {r.text}"}
@@ -239,11 +239,11 @@ with st.sidebar:
         }.get(x, x),
     )
 
-    model_name = "duckdb-nsql:7b"
+    model_name = "duckdb-nsql"
     api_key = None
     if provider == "ollama":
-        model_name = st.text_input("Ollama Model Name", value="duckdb-nsql:7b")
-        st.caption("Ensure Ollama is running: `ollama run duckdb-nsql`")
+        model_name = st.text_input("Ollama Model Name", value="duckdb-nsql")
+        st.caption("Ollama service active with `duckdb-nsql`")
     elif provider == "openai":
         api_key = st.text_input("API Key", type="password")
         model_name = st.text_input("Model", value="gpt-4o-mini")

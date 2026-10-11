@@ -131,16 +131,23 @@ Adhere strictly to these rules:
         if provider.lower() == "ollama":
             # Attempt to call Ollama
             try:
-                with httpx.Client(timeout=45.0) as client:
+                with httpx.Client(timeout=180.0) as client:
                     payload = {
                         "model": model_name,
                         "prompt": prompt,
                         "stream": False,
-                        "options": {"temperature": temperature},
+                        "options": {
+                            "temperature": temperature,
+                            "num_predict": 128,
+                            "stop": [";", "###", "```", "\n\n\n"],
+                        },
                     }
                     res = client.post(f"{self.ollama_base_url}/api/generate", json=payload)
                     if res.status_code == 200:
                         raw_response = res.json().get("response", "")
+                        # Re-append semicolon if stopped by stop token
+                        if raw_response and not raw_response.strip().endswith(";"):
+                            raw_response = raw_response.strip() + ";"
                         return self.clean_sql_output(raw_response), f"Ollama ({model_name})"
                     else:
                         print(f"Ollama returned HTTP {res.status_code}: {res.text}")
