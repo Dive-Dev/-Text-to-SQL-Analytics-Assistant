@@ -26,6 +26,21 @@ class LLMService:
             pass
         return False, []
 
+    def resolve_model_name(self, requested_model: Optional[str] = None) -> str:
+        """Resolve model name against locally available Ollama models."""
+        req = requested_model or self.default_model
+        ok, models = self.check_ollama_status()
+        if ok and models:
+            if req in models:
+                return req
+            base_req = req.split(":")[0].lower()
+            for m in models:
+                if m.lower() == req.lower() or m.lower().startswith(base_req):
+                    return m
+            return models[0]
+        return req
+
+
     def build_initial_prompt(self, question: str, schema_prompt: str) -> str:
         """Build initial Text-to-SQL prompt tailored for duckdb-nsql."""
         return f"""### Instruction:
@@ -111,7 +126,7 @@ Adhere strictly to these rules:
         """Generate SQL query via selected provider or fallback.
         Returns: (cleaned_sql, source_info)
         """
-        model_name = model or self.default_model
+        model_name = self.resolve_model_name(model)
 
         if provider.lower() == "ollama":
             # Attempt to call Ollama
