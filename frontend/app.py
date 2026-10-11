@@ -105,10 +105,20 @@ def run_nl_query(question, provider, model, temperature, api_key=None):
         "api_key": api_key or None,
     }
     try:
-        r = requests.post(f"{BACKEND_URL}/query", json=payload, timeout=180.0)
+        r = requests.post(f"{BACKEND_URL}/query", json=payload, timeout=300.0)
         if r.status_code == 200:
             return r.json()
         return {"success": False, "error": f"API HTTP {r.status_code}: {r.text}"}
+    except requests.exceptions.Timeout:
+        return {
+            "success": False,
+            "error": "Query generation timed out after 5 minutes. If running a local LLM on CPU, the model may be under heavy load. Switch to 'Local Standby / Heuristic Engine' in the sidebar for instant zero-latency responses, or ensure Ollama is using GPU acceleration.",
+        }
+    except requests.exceptions.ConnectionError:
+        return {
+            "success": False,
+            "error": f"Cannot connect to FastAPI backend at {BACKEND_URL}. Ensure the backend is running (`python run.py --backend`).",
+        }
     except Exception as e:
         return {"success": False, "error": f"Connection error: {str(e)}"}
 
