@@ -130,6 +130,7 @@ def run_qa_validation_loop(
     last_error: Optional[str] = None
     llm_source: Optional[str] = None
 
+    effective_provider = provider
     for attempt in range(1, max_retries + 1):
         # Step 1: Prompt LLM
         if attempt == 1:
@@ -145,7 +146,7 @@ def run_qa_validation_loop(
 
         current_sql, source = llm_service.generate_sql(
             prompt=prompt,
-            provider=provider,
+            provider=effective_provider,
             model=model,
             temperature=temperature,
             api_key=api_key,
@@ -153,6 +154,9 @@ def run_qa_validation_loop(
             schema_context=schema_prompt,
         )
         llm_source = source
+        # If primary provider fell back to heuristic engine, stick with heuristic for further retries
+        if "Heuristic" in source or "Standby" in source:
+            effective_provider = "offline_demo"
 
         # Step 2: DML/DDL Safety Validation
         is_safe, safety_err = check_sql_safety(current_sql)
