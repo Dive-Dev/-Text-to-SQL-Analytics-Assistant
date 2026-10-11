@@ -70,17 +70,48 @@ sequenceDiagram
   * [Ollama](https://ollama.com/) installed locally.
   * Model pulled via CLI: `ollama run duckdb-nsql`
 
-## 6. Repository Structure (Proposed)
+## 6. Repository Structure
 
 ```text
 ├── frontend/
-│   └── app.py              # Streamlit application
+│   └── app.py              # Streamlit dashboard & analytics UI
 ├── backend/
-│   ├── main.py             # FastAPI application setup
-│   ├── llm_service.py      # Ollama integration and prompt templates
-│   ├── db_service.py       # DuckDB connection and schema retrieval
-│   └── validator.py        # QA loop and SQL execution sandbox
-├── data/                   # Sample datasets (.csv, .parquet)
+│   ├── main.py             # FastAPI orchestration & REST API
+│   ├── llm_service.py      # Ollama integration & prompt templates
+│   ├── db_service.py       # DuckDB engine & schema discovery
+│   ├── validator.py        # QA loop, DML security & DuckDB dry-runs
+│   └── models.py           # Pydantic schemas
+├── data/                   # Analytical datasets (.csv, .parquet)
+│   ├── e_commerce_sales.csv
+│   └── qa_test_runs.csv
+├── tests/                  # Automated pytest verification suite
+│   └── test_assistant.py
+├── run.py                  # One-click concurrent launcher
 ├── requirements.txt
 └── README.md
 ```
+
+## 7. Quick Start & Execution
+
+### 1. Start Ollama (Recommended)
+Make sure Ollama is running and pull the DuckDB fine-tuned model:
+```bash
+ollama run duckdb-nsql:7b
+```
+*(Note: If Ollama is not running, the assistant automatically switches to local heuristic mode so you can test immediately without interruption).*
+
+### 2. Launch the Application
+Run both the FastAPI backend and Streamlit frontend together:
+```bash
+python run.py
+```
+
+* **Frontend Dashboard:** [http://localhost:8501](http://localhost:8501)
+* **Backend REST API:** [http://127.0.0.1:8000](http://127.0.0.1:8000)
+* **Interactive API Docs:** [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
+
+### 3. Run Automated Tests
+```bash
+pytest tests/
+```
+
