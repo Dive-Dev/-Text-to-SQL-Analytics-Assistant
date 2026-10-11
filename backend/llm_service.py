@@ -129,30 +129,35 @@ Adhere strictly to these rules:
         model_name = self.resolve_model_name(model)
 
         if provider.lower() == "ollama":
-            # Attempt to call Ollama
-            try:
-                with httpx.Client(timeout=180.0) as client:
-                    payload = {
-                        "model": model_name,
-                        "prompt": prompt,
-                        "stream": False,
-                        "options": {
-                            "temperature": temperature,
-                            "num_predict": 128,
-                            "stop": [";", "###", "```", "\n\n\n"],
-                        },
-                    }
-                    res = client.post(f"{self.ollama_base_url}/api/generate", json=payload)
-                    if res.status_code == 200:
-                        raw_response = res.json().get("response", "")
-                        # Re-append semicolon if stopped by stop token
-                        if raw_response and not raw_response.strip().endswith(";"):
-                            raw_response = raw_response.strip() + ";"
-                        return self.clean_sql_output(raw_response), f"Ollama ({model_name})"
-                    else:
-                        print(f"Ollama returned HTTP {res.status_code}: {res.text}")
-            except Exception as e:
-                print(f"Ollama connection error: {e}")
+            # Quick check if Ollama is responsive before waiting on generation
+            ollama_ok, _ = self.check_ollama_status()
+            if ollama_ok:
+                try:
+                    with httpx.Client(timeout=60.0) as client:
+                        payload = {
+                            "model": model_name,
+                            "prompt": prompt,
+                            "stream": False,
+                            "options": {
+                                "temperature": temperature,
+                                "num_predict": 128,
+                                "num_ctx": 2048,
+                                "stop": [";", "###", "```", "\n\n\n"],
+                            },
+                        }
+                        res = client.post(f"{self.ollama_base_url}/api/generate", json=payload)
+                        if res.status_code == 200:
+                            raw_response = res.json().get("response", "")
+                            # Re-append semicolon if stopped by stop token
+                            if raw_response and not raw_response.strip().endswith(";"):
+                                raw_response = raw_response.strip() + ";"
+                            return self.clean_sql_output(raw_response), f"Ollama ({model_name})"
+                        else:
+                            print(f"Ollama returned HTTP {res.status_code}: {res.text}")
+                except Exception as e:
+                    print(f"Ollama connection or generation error: {e}")
+            else:
+                print(f"Ollama server not reachable at {self.ollama_base_url}, using heuristic fallback.")
 
         # Cloud OpenAI-compatible API if requested or if API key provided
         if provider.lower() in ["openai", "cloud"] and api_key:
